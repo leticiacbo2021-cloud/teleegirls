@@ -3,10 +3,10 @@ const MS_HOUR = 60 * 60 * 1000;
 const MIN_CONSULTS_FOR_AVERAGE = 2;
 const DEFAULT_TYPE_PRICES = { adulto: 15, pediatria: 20, one: 20 };
 const TYPE_META = {
-  adulto: { label: "Adulto", color: "#2f855a" },
-  pediatria: { label: "Pediatria", color: "#dd6b20" },
-  one: { label: "One", color: "#1d4ed8" },
-  plantao: { label: "Plantão", color: "#0f766e" },
+  adulto: { label: "Adulto", color: "#d6336c" },
+  pediatria: { label: "Pediatria", color: "#f76e9e" },
+  one: { label: "One", color: "#9c6ade" },
+  plantao: { label: "Plantão", color: "#c2185b" },
 };
 const TYPE_KEYS = Object.keys(TYPE_META);
 
@@ -90,10 +90,10 @@ function isToday(dayKey) { return dayKey === toDayKey(new Date()); }
 
 // ── Tema claro/escuro ───────────────────────────────────────────────────────
 const CHART_PALETTE = {
-  light: { verde: "#14532d", verdeFill: "#14532d99", teal: "#0f766e", tealFill: "#0f766e99", laranja: "#ea580c" },
-  dark: { verde: "#4ade80", verdeFill: "#4ade8099", teal: "#2dd4bf", tealFill: "#2dd4bf99", laranja: "#fb923c" },
+  light: { verde: "#b5175f", verdeFill: "#b5175f99", teal: "#9c6ade", tealFill: "#9c6ade99", laranja: "#f76e9e" },
+  dark: { verde: "#ff8fc4", verdeFill: "#ff8fc499", teal: "#c084fc", tealFill: "#c084fc99", laranja: "#ff9dc7" },
 };
-const TYPE_CHART_COLORS_DARK = { adulto: "#3fbb7c", pediatria: "#f0913f", one: "#5b8cf5", plantao: "#2dd4bf" };
+const TYPE_CHART_COLORS_DARK = { adulto: "#f0559f", pediatria: "#ff8fb3", one: "#c084fc", plantao: "#e0468a" };
 function getActiveTheme() { return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light"; }
 function chartColor(name) { return (CHART_PALETTE[getActiveTheme()] || CHART_PALETTE.light)[name]; }
 function typeChartColor(type) {
