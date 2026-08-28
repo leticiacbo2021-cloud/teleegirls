@@ -6,11 +6,16 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const COOKIE_NAME = "pc_session";
 const SESSION_DAYS = 180;
 
-function usersStore() {
-  return getStore({ name: "users", consistency: "strong" });
-}
-function dataStore() {
-  return getStore({ name: "userdata", consistency: "strong" });
+function blobsConfig() { 
+  return { siteID: process.env.NETLIFY_SITE_ID, token: process.env.BLOBS_TOKEN }; 
+} 
+
+function usersStore() { 
+  return getStore({ name: "users", consistency: "strong", ...blobsConfig() }); 
+} 
+
+function dataStore() { 
+  return getStore({ name: "userdata", consistency: "strong", ...blobsConfig() }); 
 }
 
 function normEmail(email) {
