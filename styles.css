@@ -1,100 +1,100 @@
 :root {
   color-scheme: light;
-  --bg: #f6f8f6;
-  --bg-grad-1: #d3f3df;
-  --bg-grad-2: #f6f8f6;
-  --bg-grad-3: #eef2ee;
-  --orb-1: #7dd3a6;
-  --orb-2: #fdba74;
+  --bg: #fff5f8;
+  --bg-grad-1: #ffd6e7;
+  --bg-grad-2: #fff5f8;
+  --bg-grad-3: #fdeef2;
+  --orb-1: #ff9fc7;
+  --orb-2: #ffc9a8;
   --orb-opacity: 0.45;
 
-  --surface: #ffffffcc;
-  --surface-solid: #fdfefd;
-  --surface-soft: #f0f5f2;
-  --surface-sunken: #e5ece7;
+  --surface: #ffffffd9;
+  --surface-solid: #fffbfd;
+  --surface-soft: #fdeef4;
+  --surface-sunken: #fbe0ea;
   --field-bg: #ffffff;
 
-  --text: #122117;
-  --muted: #4f6255;
-  --border: #d8e3dc;
-  --shadow: 0 20px 44px -24px rgba(18, 33, 23, 0.35);
+  --text: #4a1030;
+  --muted: #966280;
+  --border: #f6d3e3;
+  --shadow: 0 20px 44px -24px rgba(157, 32, 91, 0.35);
 
-  --adulto: #2f855a;
-  --pediatria: #dd6b20;
-  --one: #1d4ed8;
-  --plantao: #0f766e;
+  --adulto: #d6336c;
+  --pediatria: #f76e9e;
+  --one: #9c6ade;
+  --plantao: #c2185b;
   --on-brand: #ffffff;
 
-  --accent: #14532d;
-  --accent-solid: #14532d;
+  --accent: #b5175f;
+  --accent-solid: #b5175f;
 
-  --danger: #b91c1c;
+  --danger: #c22c4e;
 
-  --overlay: rgba(16, 24, 18, 0.45);
+  --overlay: rgba(90, 20, 55, 0.4);
 
-  --heat-1: #dcfce7;
-  --heat-2: #bbf7d0;
-  --heat-3: #86efac;
-  --heat-4: #4ade80;
+  --heat-1: #ffe3ee;
+  --heat-2: #ffc2dc;
+  --heat-3: #ff92c1;
+  --heat-4: #f0559f;
   --heat-ink: var(--text);
 
-  --auth-bg: #edf3f8;
-  --auth-border: #d7e0e8;
-  --auth-label: #3e556c;
-  --auth-field-bg: #f7fafc;
-  --auth-field-border: #b7c5d2;
-  --auth-link: #0f7b8d;
-  --auth-btn-from: #0f7b8d;
-  --auth-btn-to: #1aa6be;
+  --auth-bg: #fff0f5;
+  --auth-border: #f6d3e3;
+  --auth-label: #8a3f63;
+  --auth-field-bg: #fffafc;
+  --auth-field-border: #f0bcd4;
+  --auth-link: #d6336c;
+  --auth-btn-from: #ff6f9c;
+  --auth-btn-to: #d6336c;
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0e1512;
-  --bg-grad-1: #16302a;
-  --bg-grad-2: #0e1512;
-  --bg-grad-3: #0a100e;
-  --orb-1: #1f6b4a;
-  --orb-2: #6b4420;
-  --orb-opacity: 0.3;
+  --bg: #200e1a;
+  --bg-grad-1: #3a1830;
+  --bg-grad-2: #200e1a;
+  --bg-grad-3: #150a12;
+  --orb-1: #a3396f;
+  --orb-2: #6b3a5c;
+  --orb-opacity: 0.32;
 
-  --surface: #18221dd9;
-  --surface-solid: #1a241f;
-  --surface-soft: #16201b;
-  --surface-sunken: #202c26;
-  --field-bg: #111a16;
+  --surface: #2a1622d9;
+  --surface-solid: #2c1824;
+  --surface-soft: #26131f;
+  --surface-sunken: #331a28;
+  --field-bg: #1c0f18;
 
-  --text: #e4ede7;
-  --muted: #9bb0a4;
-  --border: #2b3a33;
+  --text: #f9e4ee;
+  --muted: #c48ba9;
+  --border: #4a2438;
   --shadow: 0 20px 44px -24px rgba(0, 0, 0, 0.75);
 
-  --adulto: #35996a;
-  --pediatria: #d8752c;
-  --one: #3b6fe0;
-  --plantao: #12897a;
+  --adulto: #f0559f;
+  --pediatria: #ff8fb3;
+  --one: #c084fc;
+  --plantao: #e0468a;
   --on-brand: #ffffff;
 
-  --accent: #5fd39b;
-  --accent-solid: #12897a;
+  --accent: #ff8fc4;
+  --accent-solid: #d6488e;
 
   --danger: #f87171;
   --overlay: rgba(0, 0, 0, 0.66);
 
-  --heat-1: #163029;
-  --heat-2: #1b4536;
-  --heat-3: #245e46;
-  --heat-4: #2e7a58;
-  --heat-ink: #eaf6ef;
+  --heat-1: #3a1a2c;
+  --heat-2: #5c2440;
+  --heat-3: #833058;
+  --heat-4: #b13d75;
+  --heat-ink: #f9e4ee;
 
-  --auth-bg: #131d20;
-  --auth-border: #27363b;
-  --auth-label: #a7bcc3;
-  --auth-field-bg: #0e1619;
-  --auth-field-border: #33454b;
-  --auth-link: #4ecfe4;
-  --auth-btn-from: #0f7b8d;
-  --auth-btn-to: #1aa6be;
+  --auth-bg: #241220;
+  --auth-border: #45233a;
+  --auth-label: #dba8c4;
+  --auth-field-bg: #1c0f19;
+  --auth-field-border: #55293f;
+  --auth-link: #ff9dc7;
+  --auth-btn-from: #e0568c;
+  --auth-btn-to: #b5175f;
 }
 
 * { box-sizing: border-box; }
@@ -230,7 +230,7 @@ h1 { margin: 0.2rem 0 0.4rem; font-size: clamp(1.5rem, 2.2vw, 2rem); }
 .timeline-dot.pediatria { background: var(--pediatria); }
 .timeline-dot.one { background: var(--one); }
 .timeline-dot.plantao { background: var(--plantao); }
-.timeline-dot.has-atestado { box-shadow: 0 0 0 3px #7c3aed55, 0 2px 6px rgba(0,0,0,0.25); }
+.timeline-dot.has-atestado { box-shadow: 0 0 0 3px #d9a40655, 0 2px 6px rgba(0,0,0,0.25); }
 
 .type-card { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
 .type-card-header { color: var(--on-brand); font-weight: 700; text-align: center; padding: 0.65rem 0.5rem; font-size: 0.92rem; }
@@ -293,7 +293,7 @@ button:active { transform: translateY(1px); }
 .tag.pediatria { background: var(--pediatria); }
 .tag.one { background: var(--one); }
 .tag.plantao { background: var(--plantao); }
-.tag.atestado { background: #7c3aed; }
+.tag.atestado { background: #b8860b; }
 
 .calendar-head { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; margin-bottom: 0.4rem; }
 .calendar-head h2 { margin: 0; font-size: 1.05rem; }
