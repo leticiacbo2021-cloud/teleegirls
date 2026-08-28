@@ -25,6 +25,12 @@
         } catch (err) {
           document.documentElement.setAttribute("data-theme", "light");
         }
+        try {
+          var savedPalette = localStorage.getItem("palette");
+          document.documentElement.setAttribute("data-palette", savedPalette === "violeta" ? "violeta" : "rosa");
+        } catch (err) {
+          document.documentElement.setAttribute("data-palette", "rosa");
+        }
       })();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -86,6 +92,9 @@
 
     <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">
       <span id="theme-toggle-icon">🌙</span>
+    </button>
+    <button id="palette-toggle" class="theme-toggle palette-toggle" type="button" aria-pressed="false" aria-label="Trocar paleta de cores" title="Trocar paleta de cores">
+      <span id="palette-toggle-icon">🎨</span>
     </button>
 
     <!-- ── App ──────────────────────────────────────────────────────────── -->
