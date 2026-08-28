@@ -7,7 +7,7 @@ const COOKIE_NAME = "pc_session";
 const SESSION_DAYS = 180;
 
 function blobsConfig() { 
-  return { siteID: process.env.NETLIFY_SITE_ID, token: process.env.BLOBS_TOKEN }; 
+  return { siteID: process.env.SITE_ID, token: process.env.BLOBS_TOKEN }; 
 } 
 
 function usersStore() { 
