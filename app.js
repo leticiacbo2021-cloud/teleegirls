@@ -330,28 +330,43 @@ function renderConsultTypeButtons() {
   grid.innerHTML = "";
   const prices = getTypePrices();
   for (const type of TYPE_KEYS) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `type-btn ${type}`;
+    const card = document.createElement("div");
+    card.className = `type-card ${type}`;
+
+    const header = document.createElement("div");
+    header.className = `type-card-header ${type}`;
     if (type === "plantao") {
       const { category, price } = getPendingPlantaoPrice();
-      button.textContent = `Plantão ${SHIFT_PRICING[category].label} (+${formatCurrency(price)})`;
+      header.textContent = `Plantão ${SHIFT_PRICING[category].label} (+${formatCurrency(price)})`;
     } else {
-      button.textContent = `${TYPE_META[type].label} (+${formatCurrency(prices[type])})`;
+      header.textContent = `${TYPE_META[type].label} (+${formatCurrency(prices[type])})`;
     }
-    button.addEventListener("click", () => registerConsult(type));
-    grid.appendChild(button);
+
+    const actions = document.createElement("div");
+    actions.className = "type-card-actions";
+    const semBtn = document.createElement("button");
+    semBtn.type = "button";
+    semBtn.className = "type-card-btn";
+    semBtn.textContent = "Sem atestado";
+    semBtn.addEventListener("click", () => registerConsult(type, false));
+    const comBtn = document.createElement("button");
+    comBtn.type = "button";
+    comBtn.className = "type-card-btn";
+    comBtn.textContent = "Com atestado";
+    comBtn.addEventListener("click", () => registerConsult(type, true));
+    actions.append(semBtn, comBtn);
+
+    card.append(header, actions);
+    grid.appendChild(card);
   }
 }
 
-function registerConsult(type) {
+function registerConsult(type, atestado) {
   const now = Date.now();
   const dayKey = toDayKey(new Date(now));
-  const atestado = document.getElementById("atestado-checkbox").checked;
-  addRecord(dayKey, now, type, atestado);
+  addRecord(dayKey, now, type, atestado === true);
   state.selectedDateKey = dayKey;
   state.calendarCursor = startOfMonth(parseDayKey(dayKey));
-  document.getElementById("atestado-checkbox").checked = false;
   scheduleSave();
   renderAll();
 }
@@ -475,11 +490,118 @@ function renderCalendar() {
   }
 }
 
+// ── Linha do tempo do dia ────────────────────────────────────────────────────
+function renderTimeline(records) {
+  const track = document.getElementById("timeline-track");
+  const emptyLabel = document.getElementById("timeline-empty-label");
+  track.innerHTML = "";
+
+  if (!records.length) {
+    emptyLabel.textContent = "Sem atendimentos registrados neste dia.";
+    track.style.width = "100%";
+    return;
+  }
+  emptyLabel.textContent = `${records.length} atendimento${records.length > 1 ? "s" : ""}`;
+
+  const sorted = [...records].sort((a, b) => a.ts - b.ts);
+  const PAD_MIN = 30;
+  let startMin = getMinutesOfDay(sorted[0].ts) - PAD_MIN;
+  let endMin = getMinutesOfDay(sorted[sorted.length - 1].ts) + PAD_MIN;
+  startMin = Math.max(0, Math.floor(startMin / 30) * 30);
+  endMin = Math.min(24 * 60, Math.ceil(endMin / 30) * 30);
+  if (endMin - startMin < 60) endMin = Math.min(24 * 60, startMin + 60);
+  const totalMin = endMin - startMin;
+
+  const PX_PER_MIN = 4; // controla o "zoom" horizontal da linha do tempo
+  const widthPx = Math.max(totalMin * PX_PER_MIN, 320);
+  track.style.width = `${widthPx}px`;
+
+  // Marcações de hora (a cada 30 min)
+  for (let m = startMin; m <= endMin; m += 30) {
+    const tick = document.createElement("div");
+    tick.className = "timeline-tick";
+    tick.style.left = `${((m - startMin) / totalMin) * 100}%`;
+    const hh = String(Math.floor(m / 60)).padStart(2, "0");
+    const mm = String(m % 60).padStart(2, "0");
+    tick.innerHTML = `<span class="timeline-tick-label">${hh}:${mm}</span>`;
+    track.appendChild(tick);
+  }
+
+  // Bolinhas de cada atendimento
+  for (const record of sorted) {
+    const minutes = getMinutesOfDay(record.ts);
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = `timeline-dot ${record.type}`;
+    dot.style.left = `${((minutes - startMin) / totalMin) * 100}%`;
+    dot.title = `${formatTime(record.ts)} · ${getTypeDisplayLabel(record)}${record.atestado ? " · Com atestado" : ""}`;
+    if (record.atestado) dot.classList.add("has-atestado");
+    dot.addEventListener("click", () => openEditRecordModal(record.id));
+    track.appendChild(dot);
+  }
+}
+
+function setupTimelineNav() {
+  const viewport = document.querySelector(".timeline-viewport");
+  document.getElementById("timeline-prev").addEventListener("click", () => {
+    viewport.scrollBy({ left: -160, behavior: "smooth" });
+  });
+  document.getElementById("timeline-next").addEventListener("click", () => {
+    viewport.scrollBy({ left: 160, behavior: "smooth" });
+  });
+}
+
+// ── Cronômetro ───────────────────────────────────────────────────────────────
+const stopwatchState = { running: false, startedAt: 0, elapsedMs: 0, timer: null };
+function formatStopwatch(ms) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const mm = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+  const ss = String(totalSeconds % 60).padStart(2, "0");
+  return `${mm}:${ss}`;
+}
+function updateStopwatchDisplay() {
+  const current = stopwatchState.elapsedMs + (stopwatchState.running ? Date.now() - stopwatchState.startedAt : 0);
+  document.getElementById("stopwatch-display").textContent = formatStopwatch(current);
+}
+function setupStopwatch() {
+  const toggleBtn = document.getElementById("stopwatch-toggle");
+  const resetBtn = document.getElementById("stopwatch-reset");
+  toggleBtn.addEventListener("click", () => {
+    if (stopwatchState.running) {
+      stopwatchState.elapsedMs += Date.now() - stopwatchState.startedAt;
+      stopwatchState.running = false;
+      clearInterval(stopwatchState.timer);
+      toggleBtn.textContent = "▶";
+      toggleBtn.setAttribute("aria-label", "Iniciar cronômetro");
+    } else {
+      stopwatchState.startedAt = Date.now();
+      stopwatchState.running = true;
+      stopwatchState.timer = setInterval(updateStopwatchDisplay, 500);
+      toggleBtn.textContent = "⏸";
+      toggleBtn.setAttribute("aria-label", "Pausar cronômetro");
+    }
+  });
+  resetBtn.addEventListener("click", () => {
+    stopwatchState.running = false;
+    stopwatchState.elapsedMs = 0;
+    clearInterval(stopwatchState.timer);
+    toggleBtn.textContent = "▶";
+    toggleBtn.setAttribute("aria-label", "Iniciar cronômetro");
+    updateStopwatchDisplay();
+  });
+}
+
 function renderMonthGoal() {
   const monthKey = monthKeyFromDayKey(toDayKey(state.calendarCursor));
   const monthLabel = formatMonthLong(monthKey);
   const goal = getMonthlyGoal(monthKey);
   const revenue = getMonthRevenue(monthKey);
+  const monthStats = computeMonthMetrics(monthKey);
+  document.getElementById("month-total-consults").textContent = String(monthStats.total);
+  document.getElementById("month-total-breakdown").textContent =
+    monthStats.total > 0
+      ? TYPE_KEYS.map((t) => `${TYPE_META[t].label}: ${monthStats.counts[t]}`).join(" | ")
+      : "Nenhum atendimento ainda";
   document.getElementById("month-goal-title").textContent = `Meta do mês (${monthLabel})`;
   document.getElementById("month-goal-achieved").textContent = `Acumulado: ${formatCurrency(revenue)}`;
   const goalValueEl = document.getElementById("month-goal-value");
@@ -596,6 +718,7 @@ function renderAll() {
   renderConsultTypeButtons();
   const metrics = computeDayMetrics(state.selectedDateKey);
   renderMetrics(metrics);
+  renderTimeline(metrics.records);
   renderDayList(metrics.records);
   renderCalendar();
   renderMonthGoal();
@@ -868,6 +991,8 @@ function bindEvents() {
 
 async function initApp() {
   setupThemeToggle();
+  setupStopwatch();
+  setupTimelineNav();
   bindEvents();
   if (!(await tryRestoreSession())) showAuthScreen();
 }
