@@ -88,17 +88,34 @@ function formatRateCurrency(v) { return v === null ? "Sem base" : formatCurrency
 function formatRateNumber(v) { return v === null ? "Sem base" : v.toFixed(2); }
 function isToday(dayKey) { return dayKey === toDayKey(new Date()); }
 
-// ── Tema claro/escuro ───────────────────────────────────────────────────────
-const CHART_PALETTE = {
-  light: { verde: "#b5175f", verdeFill: "#b5175f99", teal: "#9c6ade", tealFill: "#9c6ade99", laranja: "#f76e9e" },
-  dark: { verde: "#ff8fc4", verdeFill: "#ff8fc499", teal: "#c084fc", tealFill: "#c084fc99", laranja: "#ff9dc7" },
+// ── Tema claro/escuro + paleta de cores ────────────────────────────────────
+const PALETTES = {
+  rosa: {
+    light: { verde: "#b5175f", verdeFill: "#b5175f99", teal: "#9c6ade", tealFill: "#9c6ade99", laranja: "#f76e9e" },
+    dark: { verde: "#ff8fc4", verdeFill: "#ff8fc499", teal: "#c084fc", tealFill: "#c084fc99", laranja: "#ff9dc7" },
+    types: {
+      light: { adulto: "#64113f", pediatria: "#a6195d", one: "#d9366f", plantao: "#e9688a" },
+      dark: { adulto: "#f0559f", pediatria: "#ff8fb3", one: "#c084fc", plantao: "#e0468a" },
+    },
+  },
+  violeta: {
+    light: { verde: "#4433a6", verdeFill: "#4433a699", teal: "#6e59d9", tealFill: "#6e59d999", laranja: "#8f7fe9" },
+    dark: { verde: "#a08dff", verdeFill: "#a08dff99", teal: "#8f7fe9", tealFill: "#8f7fe999", laranja: "#c9bdff" },
+    types: {
+      light: { adulto: "#241a6e", pediatria: "#4433a6", one: "#6e59d9", plantao: "#8f7fe9" },
+      dark: { adulto: "#8f7fe9", pediatria: "#a08dff", one: "#c9bdff", plantao: "#6e59d9" },
+    },
+  },
 };
-const TYPE_CHART_COLORS_DARK = { adulto: "#f0559f", pediatria: "#ff8fb3", one: "#c084fc", plantao: "#e0468a" };
 function getActiveTheme() { return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light"; }
-function chartColor(name) { return (CHART_PALETTE[getActiveTheme()] || CHART_PALETTE.light)[name]; }
+function getActivePalette() { return document.documentElement.getAttribute("data-palette") === "violeta" ? "violeta" : "rosa"; }
+function chartColor(name) {
+  const p = PALETTES[getActivePalette()] || PALETTES.rosa;
+  return (p[getActiveTheme()] || p.light)[name];
+}
 function typeChartColor(type) {
-  if (getActiveTheme() === "dark" && TYPE_CHART_COLORS_DARK[type]) return TYPE_CHART_COLORS_DARK[type];
-  return TYPE_META[type].color;
+  const p = PALETTES[getActivePalette()] || PALETTES.rosa;
+  return (p.types[getActiveTheme()] || p.types.light)[type];
 }
 function applyChartTheme() {
   if (typeof Chart === "undefined") return;
@@ -119,6 +136,20 @@ function setupThemeToggle() {
   document.getElementById("theme-toggle-icon").textContent = getActiveTheme() === "dark" ? "☀️" : "🌙";
   document.getElementById("theme-toggle").addEventListener("click", () => {
     setTheme(getActiveTheme() === "dark" ? "light" : "dark");
+  });
+}
+function setPalette(palette) {
+  const next = palette === "violeta" ? "violeta" : "rosa";
+  document.documentElement.setAttribute("data-palette", next);
+  try { localStorage.setItem("palette", next); } catch (e) {}
+  document.getElementById("palette-toggle-icon").textContent = next === "violeta" ? "🌸" : "🎨";
+  applyChartTheme();
+  if (state.user) renderAll();
+}
+function setupPaletteToggle() {
+  document.getElementById("palette-toggle-icon").textContent = getActivePalette() === "violeta" ? "🌸" : "🎨";
+  document.getElementById("palette-toggle").addEventListener("click", () => {
+    setPalette(getActivePalette() === "violeta" ? "rosa" : "violeta");
   });
 }
 
@@ -362,10 +393,11 @@ function renderConsultTypeButtons() {
 }
 
 function registerConsult(type, atestado) {
-  const now = Date.now();
-  const dayKey = toDayKey(new Date(now));
-  addRecord(dayKey, now, type, atestado === true);
-  state.selectedDateKey = dayKey;
+  const dayKey = state.selectedDateKey;
+  const now = new Date();
+  const [year, month, day] = dayKey.split("-").map(Number);
+  const ts = new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds()).getTime();
+  addRecord(dayKey, ts, type, atestado === true);
   state.calendarCursor = startOfMonth(parseDayKey(dayKey));
   scheduleSave();
   renderAll();
@@ -507,7 +539,8 @@ function renderTimeline(records) {
     track.style.width = "100%";
     return;
   }
-  emptyLabel.textContent = `${records.length} atendimento${records.length > 1 ? "s" : ""}`;
+  const lastRecord = records.reduce((a, b) => (b.ts > a.ts ? b : a));
+  emptyLabel.textContent = `${records.length} atendimento${records.length > 1 ? "s" : ""} · último às ${formatTime(lastRecord.ts)}`;
 
   const sorted = [...records].sort((a, b) => a.ts - b.ts);
   const PAD_MIN = 30;
@@ -1015,6 +1048,7 @@ function bindEvents() {
 
 async function initApp() {
   setupThemeToggle();
+  setupPaletteToggle();
   setupStopwatch();
   setupTimelineNav();
   setupDayListToggle();
