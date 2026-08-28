@@ -227,8 +227,14 @@
             <p id="type-breakdown"></p>
           </div>
           <canvas id="day-chart" height="180"></canvas>
-          <h3>Registros do dia</h3>
-          <ul id="day-list" class="day-list"></ul>
+          <button id="day-list-toggle" class="day-list-head" type="button" aria-expanded="false" aria-controls="day-list">
+            <h3>Registros do dia</h3>
+            <span class="day-list-head-right">
+              <span id="day-list-count" class="metric-hint"></span>
+              <span class="day-list-arrow" aria-hidden="true">▾</span>
+            </span>
+          </button>
+          <ul id="day-list" class="day-list is-collapsed"></ul>
         </article>
 
         <article class="card">

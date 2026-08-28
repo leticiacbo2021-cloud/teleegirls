@@ -395,6 +395,12 @@ function renderMetrics(metrics) {
 
 function renderDayList(records) {
   const list = document.getElementById("day-list");
+  const countLabel = document.getElementById("day-list-count");
+  if (countLabel) {
+    countLabel.textContent = records.length
+      ? `${records.length} registro${records.length > 1 ? "s" : ""}`
+      : "sem registros";
+  }
   list.innerHTML = "";
   if (!records.length) {
     const li = document.createElement("li");
@@ -539,6 +545,24 @@ function renderTimeline(records) {
     dot.addEventListener("click", () => openEditRecordModal(record.id));
     track.appendChild(dot);
   }
+}
+
+function setupDayListToggle() {
+  const toggle = document.getElementById("day-list-toggle");
+  const list = document.getElementById("day-list");
+  if (!toggle || !list) return;
+  let expanded = false;
+  try { expanded = localStorage.getItem("dayListExpanded") === "1"; } catch (e) {}
+  const apply = () => {
+    list.classList.toggle("is-collapsed", !expanded);
+    toggle.setAttribute("aria-expanded", String(expanded));
+  };
+  apply();
+  toggle.addEventListener("click", () => {
+    expanded = !expanded;
+    apply();
+    try { localStorage.setItem("dayListExpanded", expanded ? "1" : "0"); } catch (e) {}
+  });
 }
 
 function setupTimelineNav() {
@@ -993,6 +1017,7 @@ async function initApp() {
   setupThemeToggle();
   setupStopwatch();
   setupTimelineNav();
+  setupDayListToggle();
   bindEvents();
   if (!(await tryRestoreSession())) showAuthScreen();
 }
