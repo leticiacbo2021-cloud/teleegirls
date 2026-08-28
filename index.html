@@ -105,11 +105,30 @@
       </header>
 
       <section class="actions card">
-        <h2>Registrar atendimento</h2>
-        <label class="atestado-check">
-          <input id="atestado-checkbox" type="checkbox" />
-          Marcar este atendimento como "com atestado"
-        </label>
+        <div class="card-head">
+          <h2>Registrar atendimento</h2>
+          <div class="stopwatch" id="stopwatch">
+            <span id="stopwatch-display" class="stopwatch-display">00:00</span>
+            <button id="stopwatch-toggle" class="stopwatch-btn" type="button" aria-label="Iniciar cronômetro">▶</button>
+            <button id="stopwatch-reset" class="stopwatch-btn" type="button" aria-label="Zerar cronômetro">↺</button>
+          </div>
+        </div>
+
+        <div class="timeline-box">
+          <div class="timeline-head">
+            <h3>Linha do tempo dos atendimentos</h3>
+            <span id="timeline-empty-label" class="metric-hint"></span>
+          </div>
+          <div class="timeline-scroll-wrap">
+            <button id="timeline-prev" class="ghost timeline-nav" type="button" aria-label="Rolar para trás">‹</button>
+            <div class="timeline-viewport">
+              <div id="timeline-track" class="timeline-track"></div>
+            </div>
+            <button id="timeline-next" class="ghost timeline-nav" type="button" aria-label="Rolar para frente">›</button>
+          </div>
+          <p class="metric-hint">Toque numa bolinha para abrir e editar aquele atendimento.</p>
+        </div>
+
         <div id="consult-type-grid" class="btn-grid"></div>
         <div class="action-row">
           <button id="undo-btn" class="ghost" type="button">Desfazer último do dia selecionado</button>
@@ -239,6 +258,11 @@
                 <p class="metric-label">Falta para meta</p>
                 <p id="month-goal-remaining" class="metric-value"></p>
                 <p id="month-goal-progress" class="metric-hint"></p>
+              </article>
+              <article class="month-goal-card">
+                <p class="metric-label">Atendimentos no mês</p>
+                <p id="month-total-consults" class="metric-value"></p>
+                <p id="month-total-breakdown" class="metric-hint"></p>
               </article>
             </div>
           </section>
