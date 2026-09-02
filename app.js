@@ -30,7 +30,17 @@ const state = {
   saveTimer: null,
   saveInFlight: false,
   saveDirtyAgain: false,
+  dirtyDays: new Set(),
+  dirtySettings: false,
+  yearlySummaryYear: new Date().getFullYear(),
 };
+
+// Marca só o(s) dia(s) realmente alterados nesta sessão, para que o
+// salvamento envie apenas essas mudanças em vez da árvore de dados inteira —
+// isso evita que uma aba com dados desatualizados apague dias que foram
+// registrados em outra aba/dispositivo.
+function markDayDirty(dayKey) { state.dirtyDays.add(dayKey); }
+function markSettingsDirty() { state.dirtySettings = true; }
 
 function emptyData() {
   return {
@@ -69,6 +79,9 @@ function toTimeInputValue(ts) {
 }
 function startOfMonth(date) { return new Date(date.getFullYear(), date.getMonth(), 1); }
 function formatCurrency(v) { return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }); }
+function escapeHtml(str) {
+  return String(str ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
 function formatCalendarRevenue(v) {
   if (v <= 0) return "-";
   if (v >= 1000) return `R$ ${(v / 1000).toFixed(1).replace(".", ",")}k`;
@@ -99,11 +112,11 @@ const PALETTES = {
     },
   },
   violeta: {
-    light: { verde: "#4433a6", verdeFill: "#4433a699", teal: "#6e59d9", tealFill: "#6e59d999", laranja: "#8f7fe9" },
-    dark: { verde: "#a08dff", verdeFill: "#a08dff99", teal: "#8f7fe9", tealFill: "#8f7fe999", laranja: "#c9bdff" },
+    light: { verde: "#1a4fa0", verdeFill: "#1a4fa099", teal: "#2f7fe0", tealFill: "#2f7fe099", laranja: "#6fb1f7" },
+    dark: { verde: "#7fb0ff", verdeFill: "#7fb0ff99", teal: "#3f7fe0", tealFill: "#3f7fe099", laranja: "#a9d8ff" },
     types: {
-      light: { adulto: "#241a6e", pediatria: "#4433a6", one: "#6e59d9", plantao: "#8f7fe9" },
-      dark: { adulto: "#8f7fe9", pediatria: "#a08dff", one: "#c9bdff", plantao: "#6e59d9" },
+      light: { adulto: "#0f2a63", pediatria: "#1a4fa0", one: "#2f7fe0", plantao: "#6fb1f7" },
+      dark: { adulto: "#6fb1f7", pediatria: "#7fb0ff", one: "#a9d8ff", plantao: "#2f7fe0" },
     },
   },
 };
@@ -142,12 +155,12 @@ function setPalette(palette) {
   const next = palette === "violeta" ? "violeta" : "rosa";
   document.documentElement.setAttribute("data-palette", next);
   try { localStorage.setItem("palette", next); } catch (e) {}
-  document.getElementById("palette-toggle-icon").textContent = next === "violeta" ? "🌸" : "🎨";
+  document.getElementById("palette-toggle-icon").textContent = next === "violeta" ? "💠" : "🎨";
   applyChartTheme();
   if (state.user) renderAll();
 }
 function setupPaletteToggle() {
-  document.getElementById("palette-toggle-icon").textContent = getActivePalette() === "violeta" ? "🌸" : "🎨";
+  document.getElementById("palette-toggle-icon").textContent = getActivePalette() === "violeta" ? "💠" : "🎨";
   document.getElementById("palette-toggle").addEventListener("click", () => {
     setPalette(getActivePalette() === "violeta" ? "rosa" : "violeta");
   });
@@ -186,10 +199,29 @@ function scheduleSave() {
 async function flushSave() {
   if (!state.user) return;
   if (state.saveInFlight) { state.saveDirtyAgain = true; return; }
+  if (!state.dirtyDays.size && !state.dirtySettings) return;
   state.saveInFlight = true;
   setSyncStatus("saving", "Salvamento: enviando...");
+
+  // Envia só os dias e/ou configurações que mudaram nesta sessão — nunca a
+  // árvore de dados inteira. Assim, uma aba com dados desatualizados nunca
+  // apaga dias registrados em outra aba/dispositivo.
+  const daysPayload = {};
+  const removedDays = [];
+  for (const dayKey of state.dirtyDays) {
+    const records = state.data.days[dayKey];
+    if (records && records.length) daysPayload[dayKey] = records;
+    else removedDays.push(dayKey);
+  }
+  const body = { days: daysPayload, removedDays };
+  if (state.dirtySettings) body.settings = state.data.settings;
+
+  const savedDays = new Set(state.dirtyDays);
+  const savedSettings = state.dirtySettings;
   try {
-    await api("/data/save", { method: "POST", body: { data: state.data } });
+    await api("/data/save", { method: "POST", body });
+    for (const dayKey of savedDays) state.dirtyDays.delete(dayKey);
+    if (savedSettings) state.dirtySettings = false;
     setSyncStatus("saved", "Salvamento: tudo salvo");
   } catch (err) {
     setSyncStatus("error", "Falha ao salvar. Tentando de novo...");
@@ -220,6 +252,7 @@ function getShiftCategoryForTs(ts) {
 function recalcPlantaoPricingForDay(dayKey) {
   const records = getDayRecords(dayKey);
   if (!records.length) return;
+  markDayDirty(dayKey);
   records.sort((a, b) => a.ts - b.ts);
   const counters = { noturno: 0, m: 0, t: 0, reforco: 0 };
   for (const record of records) {
@@ -266,7 +299,7 @@ function getRecordPrice(record) { return Number(record.price) || 0; }
 // ── Dados do dia / registros ────────────────────────────────────────────────
 function getDayRecords(dayKey) { return state.data.days[dayKey] || []; }
 
-function addRecord(dayKey, ts, type, atestado) {
+function addRecord(dayKey, ts, type, atestado, name) {
   if (!state.data.days[dayKey]) state.data.days[dayKey] = [];
   const prices = getTypePrices();
   const record = {
@@ -276,8 +309,10 @@ function addRecord(dayKey, ts, type, atestado) {
     atestado: atestado === true,
     price: type === "plantao" ? 0 : prices[type] || 0,
     plantaoCategory: type === "plantao" ? getShiftCategoryForTs(ts) : null,
+    name: typeof name === "string" ? name.trim().slice(0, 80) : "",
   };
   state.data.days[dayKey].push(record);
+  markDayDirty(dayKey);
   if (type === "plantao") recalcPlantaoPricingForDay(dayKey);
   return record;
 }
@@ -289,6 +324,7 @@ function deleteRecordById(recordId) {
     records.splice(idx, 1);
     if (!records.length) delete state.data.days[dayKey];
     else recalcPlantaoPricingForDay(dayKey);
+    markDayDirty(dayKey);
     return dayKey;
   }
   return null;
@@ -325,6 +361,7 @@ function computeDayMetrics(dayKey) {
     totalClockHours,
     grossRevenuePerHour: hasSample && totalClockHours > 0 ? revenue / totalClockHours : null,
     grossConsultationsPerHour: hasSample && totalClockHours > 0 ? total / totalClockHours : null,
+    avgTicket: total > 0 ? revenue / total : null,
   };
 }
 
@@ -345,6 +382,155 @@ function computeMonthMetrics(monthKey) {
 
 function getMonthRevenue(monthKey) { return computeMonthMetrics(monthKey).revenue; }
 
+// Todos os registros de um mês, ordenados cronologicamente.
+function getMonthRecords(monthKey) {
+  const records = [];
+  for (const [dayKey, dayRecords] of Object.entries(state.data.days)) {
+    if (!dayKey.startsWith(`${monthKey}-`)) continue;
+    for (const r of dayRecords) records.push(r);
+  }
+  records.sort((a, b) => a.ts - b.ts);
+  return records;
+}
+
+// Todos os meses (YYYY-MM) que têm ao menos um atendimento registrado.
+function getMonthsWithData() {
+  const set = new Set();
+  for (const dayKey of Object.keys(state.data.days)) {
+    if (state.data.days[dayKey]?.length) set.add(monthKeyFromDayKey(dayKey));
+  }
+  return [...set].sort().reverse();
+}
+
+// ── Resumo anual ─────────────────────────────────────────────────────────────
+const MONTH_LABELS = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+function renderYearlySummary() {
+  const year = state.yearlySummaryYear;
+  document.getElementById("yearly-summary-year-label").textContent = String(year);
+  const body = document.getElementById("yearly-summary-body");
+  body.innerHTML = "";
+
+  let yearTotal = 0;
+  let yearCount = 0;
+  for (let m = 1; m <= 12; m += 1) {
+    const monthKey = `${year}-${String(m).padStart(2, "0")}`;
+    const metrics = computeMonthMetrics(monthKey);
+    yearTotal += metrics.revenue;
+    yearCount += metrics.total;
+
+    const tr = document.createElement("tr");
+    if (!metrics.total) tr.classList.add("is-empty-month");
+    tr.innerHTML = `
+      <td>${MONTH_LABELS[m - 1]}</td>
+      <td>${metrics.total}</td>
+      <td>${formatCurrency(metrics.revenue)}</td>
+    `;
+    body.appendChild(tr);
+  }
+
+  document.getElementById("yearly-summary-total-count").textContent = String(yearCount);
+  document.getElementById("yearly-summary-total-revenue").textContent = formatCurrency(yearTotal);
+
+  const select = document.getElementById("export-month-select");
+  const previousValue = select.value;
+  const monthsWithData = getMonthsWithData();
+  const currentMonthKey = monthKeyFromDayKey(state.selectedDateKey);
+  const options = monthsWithData.length ? monthsWithData : [currentMonthKey];
+  select.innerHTML = options.map((mk) => `<option value="${mk}">${formatMonthLong(mk)}</option>`).join("");
+  if (options.includes(previousValue)) select.value = previousValue;
+  else if (options.includes(currentMonthKey)) select.value = currentMonthKey;
+}
+
+function openYearlySummaryModal() {
+  state.yearlySummaryYear = parseDayKey(state.selectedDateKey).getFullYear();
+  renderYearlySummary();
+  const overlay = document.getElementById("yearly-summary-modal");
+  overlay.classList.remove("hidden");
+  overlay.setAttribute("aria-hidden", "false");
+}
+function closeYearlySummaryModal() {
+  const overlay = document.getElementById("yearly-summary-modal");
+  overlay.classList.add("hidden");
+  overlay.setAttribute("aria-hidden", "true");
+}
+
+// ── Exportação de atendimentos do mês ───────────────────────────────────────
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function csvEscape(value) {
+  const str = String(value ?? "");
+  return /[;"\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+}
+
+function exportMonthCSV(monthKey) {
+  const records = getMonthRecords(monthKey);
+  const rows = [["Data", "Hora", "Nome do paciente", "Tipo", "Atestado", "Valor (R$)"]];
+  let total = 0;
+  for (const r of records) {
+    total += getRecordPrice(r);
+    rows.push([
+      toDayKey(new Date(r.ts)).split("-").reverse().join("/"),
+      toTimeInputValue(r.ts),
+      r.name || "",
+      getTypeDisplayLabel(r),
+      r.atestado ? "Sim" : "Não",
+      getRecordPrice(r).toFixed(2).replace(".", ","),
+    ]);
+  }
+  rows.push([]);
+  rows.push(["", "", "", "", "Total", total.toFixed(2).replace(".", ",")]);
+  const csv = "\uFEFF" + rows.map((row) => row.map(csvEscape).join(";")).join("\r\n");
+  downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), `atendimentos-${monthKey}.csv`);
+}
+
+function exportMonthPDF(monthKey) {
+  if (!window.jspdf?.jsPDF) {
+    alert("Não foi possível carregar o gerador de PDF. Verifique sua conexão e tente novamente.");
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const records = getMonthRecords(monthKey);
+  const total = records.reduce((s, r) => s + getRecordPrice(r), 0);
+
+  doc.setFontSize(14);
+  doc.text(`Atendimentos — ${formatMonthLong(monthKey)}`, 14, 16);
+  doc.setFontSize(10);
+  doc.text(`${records.length} atendimento${records.length === 1 ? "" : "s"} · Faturamento total: ${formatCurrency(total)}`, 14, 23);
+
+  doc.autoTable({
+    startY: 28,
+    head: [["Data", "Hora", "Nome do paciente", "Tipo", "Atestado", "Valor"]],
+    body: records.map((r) => [
+      toDayKey(new Date(r.ts)).split("-").reverse().join("/"),
+      toTimeInputValue(r.ts),
+      r.name || "—",
+      getTypeDisplayLabel(r),
+      r.atestado ? "Sim" : "Não",
+      formatCurrency(getRecordPrice(r)),
+    ]),
+    foot: [["", "", "", "", "Total", formatCurrency(total)]],
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [214, 51, 108] },
+    footStyles: { fillColor: [245, 245, 245], textColor: [20, 20, 20] },
+  });
+
+  doc.save(`atendimentos-${monthKey}.pdf`);
+}
+
 function getMonthlyGoal(monthKey) {
   const value = Number(state.data.settings.monthlyGoals?.[monthKey]);
   return Number.isFinite(value) && value >= 0 ? value : null;
@@ -353,6 +539,7 @@ function setMonthlyGoal(monthKey, value) {
   if (!state.data.settings.monthlyGoals) state.data.settings.monthlyGoals = {};
   if (value === null) delete state.data.settings.monthlyGoals[monthKey];
   else state.data.settings.monthlyGoals[monthKey] = value;
+  markSettingsDirty();
 }
 
 // ── Renderização ─────────────────────────────────────────────────────────────
@@ -397,7 +584,10 @@ function registerConsult(type, atestado) {
   const now = new Date();
   const [year, month, day] = dayKey.split("-").map(Number);
   const ts = new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds()).getTime();
-  addRecord(dayKey, ts, type, atestado === true);
+  const nameInput = document.getElementById("quick-patient-name");
+  const name = nameInput ? nameInput.value : "";
+  addRecord(dayKey, ts, type, atestado === true, name);
+  if (nameInput) nameInput.value = "";
   state.calendarCursor = startOfMonth(parseDayKey(dayKey));
   scheduleSave();
   renderAll();
@@ -418,7 +608,7 @@ function renderMetrics(metrics) {
   document.getElementById("total-count").textContent = String(metrics.total);
   document.getElementById("total-revenue").textContent = formatCurrency(metrics.revenue);
   document.getElementById("gross-revenue-per-hour").textContent = formatRateCurrency(metrics.grossRevenuePerHour);
-  document.getElementById("gross-consults-per-hour").textContent = formatRateNumber(metrics.grossConsultationsPerHour);
+  document.getElementById("avg-ticket").textContent = formatRateCurrency(metrics.avgTicket);
   document.getElementById("atestado-rate").textContent =
     metrics.atestadoRate === null ? "Sem base" : `${(metrics.atestadoRate * 100).toFixed(1)}% (${metrics.atestadoCount}/${metrics.total})`;
   document.getElementById("type-breakdown").textContent =
@@ -449,6 +639,7 @@ function renderDayList(records) {
     main.className = "day-main";
     main.innerHTML = `
       <span>${formatTime(record.ts)}</span>
+      ${record.name ? `<span class="day-patient-name">${escapeHtml(record.name)}</span>` : ""}
       <span class="tag ${record.type}">${getTypeDisplayLabel(record)}</span>
       <span class="metric-hint">${formatCurrency(getRecordPrice(record))}</span>
       ${record.atestado ? '<span class="tag atestado">Atestado</span>' : ""}
@@ -573,7 +764,7 @@ function renderTimeline(records) {
     dot.type = "button";
     dot.className = `timeline-dot ${record.type}`;
     dot.style.left = `${((minutes - startMin) / totalMin) * 100}%`;
-    dot.title = `${formatTime(record.ts)} · ${getTypeDisplayLabel(record)}${record.atestado ? " · Com atestado" : ""}`;
+    dot.title = `${formatTime(record.ts)}${record.name ? " · " + record.name : ""} · ${getTypeDisplayLabel(record)}${record.atestado ? " · Com atestado" : ""}`;
     if (record.atestado) dot.classList.add("has-atestado");
     dot.addEventListener("click", () => openEditRecordModal(record.id));
     track.appendChild(dot);
@@ -794,6 +985,7 @@ function openEditRecordModal(recordId) {
   const location = findRecordLocationById(recordId);
   if (!location) return;
   state.editingRecordId = recordId;
+  document.getElementById("edit-record-name").value = location.record.name || "";
   document.getElementById("edit-record-date").value = toDayKey(new Date(location.record.ts));
   document.getElementById("edit-record-time").value = toTimeInputValue(location.record.ts);
   document.getElementById("edit-record-type").value = location.record.type;
@@ -814,6 +1006,7 @@ function saveEditedRecord() {
   const location = findRecordLocationById(state.editingRecordId);
   if (!location) { closeEditRecordModal(); return; }
 
+  const newName = document.getElementById("edit-record-name").value;
   const newDayKey = document.getElementById("edit-record-date").value;
   const newTime = document.getElementById("edit-record-time").value;
   const newType = document.getElementById("edit-record-type").value;
@@ -832,7 +1025,9 @@ function saveEditedRecord() {
     atestado: newAtestado,
     price: newPrice,
     plantaoCategory: newType === "plantao" ? getShiftCategoryForTs(newTs) : null,
+    name: typeof newName === "string" ? newName.trim().slice(0, 80) : "",
   });
+  markDayDirty(newDayKey);
   if (newType === "plantao") recalcPlantaoPricingForDay(newDayKey);
   else if (oldDayKey === newDayKey) recalcPlantaoPricingForDay(newDayKey);
   if (oldDayKey !== newDayKey) recalcPlantaoPricingForDay(oldDayKey);
@@ -868,6 +1063,8 @@ async function tryRestoreSession() {
     const payload = await api("/auth/session");
     state.user = payload.user;
     state.data = normalizeData(payload.data);
+    state.dirtyDays.clear();
+    state.dirtySettings = false;
     showAppScreen();
     renderAll();
     return true;
@@ -905,6 +1102,8 @@ function bindEvents() {
       const payload = await api("/auth/login", { method: "POST", body: { email, password } });
       state.user = payload.user;
       state.data = normalizeData(payload.data);
+      state.dirtyDays.clear();
+      state.dirtySettings = false;
       showAuthMessage("");
       showAppScreen();
       renderAll();
@@ -932,6 +1131,8 @@ function bindEvents() {
     try { await api("/auth/logout", { method: "POST" }); } catch (e) {}
     state.user = null;
     state.data = emptyData();
+    state.dirtyDays.clear();
+    state.dirtySettings = false;
     showAuthScreen();
   });
 
@@ -960,6 +1161,7 @@ function bindEvents() {
       next[type] = value;
     }
     state.data.settings.typePrices = next;
+    markSettingsDirty();
     scheduleSave();
     renderAll();
   };
@@ -983,12 +1185,14 @@ function bindEvents() {
     const time = document.getElementById("manual-time").value;
     const type = document.getElementById("manual-type").value;
     const atestado = document.getElementById("manual-atestado").checked;
+    const name = document.getElementById("manual-name").value;
     if (!dayKey || !time || !TYPE_META[type]) return;
     const ts = toTimestampFromDayAndTime(dayKey, time);
-    addRecord(dayKey, ts, type, atestado);
+    addRecord(dayKey, ts, type, atestado, name);
     state.selectedDateKey = dayKey;
     state.calendarCursor = startOfMonth(parseDayKey(dayKey));
     document.getElementById("manual-atestado").checked = false;
+    document.getElementById("manual-name").value = "";
     scheduleSave();
     renderAll();
   });
@@ -1003,6 +1207,27 @@ function bindEvents() {
     scheduleSave();
     renderAll();
     closeEditRecordModal();
+  });
+
+  const yearlyOverlay = document.getElementById("yearly-summary-modal");
+  document.getElementById("open-yearly-summary-btn").addEventListener("click", openYearlySummaryModal);
+  document.getElementById("close-yearly-summary-modal").addEventListener("click", closeYearlySummaryModal);
+  yearlyOverlay.addEventListener("click", (e) => { if (e.target === yearlyOverlay) closeYearlySummaryModal(); });
+  document.getElementById("yearly-summary-prev").addEventListener("click", () => {
+    state.yearlySummaryYear -= 1;
+    renderYearlySummary();
+  });
+  document.getElementById("yearly-summary-next").addEventListener("click", () => {
+    state.yearlySummaryYear += 1;
+    renderYearlySummary();
+  });
+  document.getElementById("export-month-csv").addEventListener("click", () => {
+    const monthKey = document.getElementById("export-month-select").value;
+    if (monthKey) exportMonthCSV(monthKey);
+  });
+  document.getElementById("export-month-pdf").addEventListener("click", () => {
+    const monthKey = document.getElementById("export-month-select").value;
+    if (monthKey) exportMonthPDF(monthKey);
   });
 
   const passwordOverlay = document.getElementById("password-modal");
@@ -1036,12 +1261,18 @@ function bindEvents() {
   });
 
   window.addEventListener("beforeunload", () => {
-    if (state.saveTimer) {
-      // Melhor esforço: tenta enviar o último estado antes de fechar a aba.
-      navigator.sendBeacon?.(
-        "/api/data/save",
-        new Blob([JSON.stringify({ data: state.data })], { type: "application/json" })
-      );
+    if (state.saveTimer && (state.dirtyDays.size || state.dirtySettings)) {
+      // Melhor esforço: tenta enviar só as mudanças pendentes antes de fechar a aba.
+      const daysPayload = {};
+      const removedDays = [];
+      for (const dayKey of state.dirtyDays) {
+        const records = state.data.days[dayKey];
+        if (records && records.length) daysPayload[dayKey] = records;
+        else removedDays.push(dayKey);
+      }
+      const body = { days: daysPayload, removedDays };
+      if (state.dirtySettings) body.settings = state.data.settings;
+      navigator.sendBeacon?.("/api/data/save", new Blob([JSON.stringify(body)], { type: "application/json" }));
     }
   });
 }

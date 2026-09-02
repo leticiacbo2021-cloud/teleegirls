@@ -34,6 +34,8 @@
       })();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <script defer src="./app.js"></script>
   </head>
   <body>
@@ -103,6 +105,7 @@
         <div class="session-bar">
           <p id="session-user-label"></p>
           <p id="sync-status-label" class="sync-status idle">Salvamento: aguardando</p>
+          <button id="open-yearly-summary-btn" class="ghost" type="button">Resumo anual</button>
           <button id="change-password-btn" class="ghost" type="button">Trocar senha</button>
           <button id="logout-btn" class="ghost" type="button">Sair</button>
         </div>
@@ -138,6 +141,10 @@
           <p class="metric-hint">Toque numa bolinha para abrir e editar aquele atendimento.</p>
         </div>
 
+        <label class="quick-name-field">
+          Nome do paciente (opcional, para o próximo registro)
+          <input id="quick-patient-name" type="text" maxlength="80" placeholder="Digite antes de tocar num botão abaixo" />
+        </label>
         <div id="consult-type-grid" class="btn-grid"></div>
         <div class="action-row">
           <button id="undo-btn" class="ghost" type="button">Desfazer último do dia selecionado</button>
@@ -175,6 +182,10 @@
         <details class="price-settings-box">
           <summary>Adicionar atendimento manual (outra data/hora)</summary>
           <form id="manual-form" class="manual-form">
+            <label>
+              Nome do paciente
+              <input id="manual-name" type="text" maxlength="80" placeholder="Opcional" />
+            </label>
             <label>
               Data
               <input id="manual-date" type="date" required />
@@ -220,8 +231,9 @@
           <p class="metric-hint">Faturamento dividido pelo tempo entre o 1º e o último atendimento.</p>
         </article>
         <article class="metric card">
-          <p class="metric-label">Atendimentos/hora (bruta)</p>
-          <p id="gross-consults-per-hour" class="metric-value"></p>
+          <p class="metric-label">Ticket médio</p>
+          <p id="avg-ticket" class="metric-value"></p>
+          <p class="metric-hint">Faturamento do dia dividido pelo total de atendimentos.</p>
         </article>
         <article class="metric card">
           <p class="metric-label">% com atestado</p>
@@ -305,6 +317,10 @@
         </div>
         <form id="edit-record-form" class="manual-form">
           <label>
+            Nome do paciente
+            <input id="edit-record-name" type="text" maxlength="80" placeholder="Opcional" />
+          </label>
+          <label>
             Data
             <input id="edit-record-date" type="date" required />
           </label>
@@ -334,6 +350,53 @@
             <button id="delete-record-btn" type="button" class="ghost">Excluir atendimento</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- ── Modal: resumo anual + exportação ─────────────────────────────── -->
+    <div id="yearly-summary-modal" class="modal-overlay hidden" aria-hidden="true">
+      <div class="modal-card modal-card-lg" role="dialog" aria-modal="true" aria-labelledby="yearly-summary-title">
+        <div class="modal-head">
+          <h2 id="yearly-summary-title">Resumo anual</h2>
+          <button id="close-yearly-summary-modal" class="ghost" type="button">Fechar</button>
+        </div>
+
+        <div class="yearly-nav">
+          <button id="yearly-summary-prev" class="ghost" type="button" aria-label="Ano anterior">‹</button>
+          <span id="yearly-summary-year-label" class="yearly-year-label"></span>
+          <button id="yearly-summary-next" class="ghost" type="button" aria-label="Próximo ano">›</button>
+        </div>
+
+        <table class="yearly-table">
+          <thead>
+            <tr>
+              <th>Mês</th>
+              <th>Atendimentos</th>
+              <th>Faturamento</th>
+            </tr>
+          </thead>
+          <tbody id="yearly-summary-body"></tbody>
+          <tfoot>
+            <tr>
+              <th>Total do ano</th>
+              <th id="yearly-summary-total-count"></th>
+              <th id="yearly-summary-total-revenue"></th>
+            </tr>
+          </tfoot>
+        </table>
+
+        <div class="yearly-export-box">
+          <h3>Baixar atendimentos de um mês</h3>
+          <p class="metric-hint">Baixa todos os atendimentos do mês escolhido, um por linha, com nome, data, hora, tipo e valor.</p>
+          <div class="yearly-export-row">
+            <label>
+              Mês
+              <select id="export-month-select"></select>
+            </label>
+            <button id="export-month-csv" class="ghost" type="button">Baixar planilha (CSV)</button>
+            <button id="export-month-pdf" class="ghost" type="button">Baixar PDF</button>
+          </div>
+        </div>
       </div>
     </div>
 
