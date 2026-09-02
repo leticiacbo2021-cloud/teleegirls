@@ -10,6 +10,15 @@ const TYPE_META = {
 };
 const TYPE_KEYS = Object.keys(TYPE_META);
 
+// Alguns navegadores não zeram a rolagem horizontal da página quando o
+// usuário muda o nível de zoom (Ctrl +/-), o que deixa o conteúdo
+// (centralizado via margin:auto) parecendo "puxado" pra um lado. Forçar a
+// rolagem horizontal de volta a 0 a cada mudança de tamanho de viewport
+// (o que inclui zoom) resolve isso sem depender do navegador se corrigir sozinho.
+window.addEventListener("resize", () => {
+  if (window.scrollX !== 0) window.scrollTo(0, window.scrollY);
+});
+
 // Plantão: preço escalonado por faixa de horário. A contagem de cada faixa
 // reinicia a cada dia (primeiros N atendimentos por um valor, depois outro).
 const SHIFT_PRICING = {
