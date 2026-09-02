@@ -153,8 +153,39 @@ exports.handler = async (event) => {
     if (path === "/data/save" && method === "POST") {
       const email = await getEmailFromRequest(event);
       if (!email) return json(401, { message: "Sem sessão ativa." });
-      if (!body.data || typeof body.data !== "object") return json(400, { message: "Dados inválidos." });
-      await dataStore().setJSON(email, body.data);
+
+      // Faz merge (leitura + escrita) em vez de sobrescrever o blob inteiro:
+      // o cliente manda só os dias/config que ele de fato alterou nesta
+      // sessão, então dias registrados por outra aba/dispositivo entre a
+      // última leitura e agora nunca são apagados.
+      const hasPartialShape =
+        body.days !== undefined || body.removedDays !== undefined || body.settings !== undefined;
+
+      if (!hasPartialShape) {
+        // Compatibilidade com clientes antigos que ainda mandam o blob inteiro.
+        if (!body.data || typeof body.data !== "object") return json(400, { message: "Dados inválidos." });
+        await dataStore().setJSON(email, body.data);
+        return json(200, { message: "ok" });
+      }
+
+      const store = dataStore();
+      const current = (await store.get(email, { type: "json" })) || emptyData();
+      if (!current.days || typeof current.days !== "object") current.days = {};
+      if (!current.settings || typeof current.settings !== "object") current.settings = emptyData().settings;
+
+      if (body.days && typeof body.days === "object") {
+        for (const [dayKey, records] of Object.entries(body.days)) {
+          if (Array.isArray(records) && records.length) current.days[dayKey] = records;
+        }
+      }
+      if (Array.isArray(body.removedDays)) {
+        for (const dayKey of body.removedDays) delete current.days[dayKey];
+      }
+      if (body.settings && typeof body.settings === "object") {
+        current.settings = body.settings;
+      }
+
+      await store.setJSON(email, current);
       return json(200, { message: "ok" });
     }
 
